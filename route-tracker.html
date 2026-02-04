@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Route Tracker</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            overflow: hidden;
+        }
+
+        .container {
+            padding: 10px;
+            height: 100vh;
+            height: -webkit-fill-available;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 10px;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .last-update {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            color: #4dabf7;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .routes-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .route-card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 12px 15px;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+            /* Height calculated to fit 5 cards: (100vh - header ~70px - gaps 32px) / 5 */
+            height: calc((100vh - 102px) / 5 - 8px);
+            min-height: 60px;
+            max-height: 100px;
+        }
+
+        .route-card-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 70px;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .route-card-bg svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .route-info {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .route-name {
+            font-size: 22px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .map-link {
+            color: #4dabf7;
+            text-decoration: none;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-top: 4px;
+        }
+
+        .map-link:hover {
+            text-decoration: underline;
+        }
+
+        .route-time {
+            text-align: right;
+            min-width: 55px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .time-value {
+            font-size: 32px;
+            font-weight: 700;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .time-unit {
+            font-size: 12px;
+            color: #888;
+        }
+
+        
+        .no-routes {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .no-routes p {
+            margin-bottom: 15px;
+        }
+
+        /* Settings Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal-content {
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #4dabf7;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #16213e;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .form-group input::placeholder {
+            color: #666;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: #4dabf7;
+            color: #000;
+        }
+
+        .btn-danger {
+            background: #c92a2a;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+        }
+
+        .saved-routes {
+            margin-top: 30px;
+        }
+
+        .saved-routes h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #aaa;
+        }
+
+        .saved-route-item {
+            background: #16213e;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .saved-route-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .saved-route-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .saved-route-via {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .delete-route {
+            background: none;
+            border: none;
+            color: #ff6b6b;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+
+        .api-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .api-note {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
+        .schedule-section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .schedule-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #aaa;
+        }
+
+        .time-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .time-inputs select {
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #16213e;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .time-inputs span {
+            color: #888;
+        }
+
+        .day-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .day-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #16213e;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .day-checkbox input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .day-checkbox label {
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .schedule-status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .schedule-status.active {
+            background: rgba(81, 207, 102, 0.2);
+            color: #51cf66;
+        }
+
+        .schedule-status.inactive {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+        }
+
+        .waypoints-container {
+            margin-top: 10px;
+        }
+
+        .waypoint-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .waypoint-row input {
+            flex: 1;
+        }
+
+        .waypoint-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            min-width: 44px;
+        }
+
+        .waypoint-btn.add {
+            background: #2f9e44;
+            color: #fff;
+        }
+
+        .waypoint-btn.remove {
+            background: #c92a2a;
+            color: #fff;
+        }
+
+        .error-message {
+            background: #c92a2a;
+            color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .loading {
+            opacity: 0.5;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .status-dot.active {
+            background: #51cf66;
+        }
+
+        .status-dot.error {
+            background: #ff6b6b;
+        }
+
+        .status-dot.loading {
+            background: #fcc419;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .countdown {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Route Tracker</h1>
+                <div class="last-update">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="lastUpdate">Not updated</span>
+                </div>
+                <div class="countdown" id="countdown"></div>
+            </div>
+            <button class="settings-btn" onclick="openSettings()">&#9881;</button>
+        </header>
+
+        <div class="routes-container" id="routesContainer">
+            <div class="no-routes" id="initialMessage">
+                <p>No routes configured</p>
+                <button class="btn btn-primary" onclick="openSettings()">Add Routes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-btn" onclick="closeSettings()">Done</button>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+            <div class="api-section">
+                <div class="form-group">
+                    <label>Google Maps API Key</label>
+                    <input type="text" id="apiKeyInput" placeholder="Enter your API key">
+                    <p class="api-note">
+                        Required APIs: Maps JavaScript API, Distance Matrix API, Directions API.<br>
+                        Get a key at console.cloud.google.com
+                    </p>
+                </div>
+                <button class="btn btn-secondary" onclick="saveApiKey()">Save &amp; Load API</button>
+            </div>
+
+            <div class="schedule-section">
+                <h3>Schedule (API Usage Protection)</h3>
+                <div class="form-group">
+                    <label>Active Hours</label>
+                    <div class="time-inputs">
+                        <select id="startHour"></select>
+                        <span>to</span>
+                        <select id="endHour"></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Active Days</label>
+                    <div class="day-checkboxes">
+                        <div class="day-checkbox">
+                            <input type="checkbox" id="day-0" onchange="saveSchedule()">
+                            <label for="day-0">Sun</label>
+                        </div>
+                        <div class="day-checkbox">
+                            <input type="checkbox" id="day-1" onchange="saveSchedule()">
+                            <label for="day-1">Mon</label>
+                        </div>
+                        <div class="day-checkbox">
+                            <input type="checkbox" id="day-2" onchange="saveSchedule()">
+                            <label for="day-2">Tue</label>
+                        </div>
+                        <div class="day-checkbox">
+                            <input type="checkbox" id="day-3" onchange="saveSchedule()">
+                            <label for="day-3">Wed</label>
+                        </div>
+                        <div class="day-checkbox">
+                            <input type="checkbox" id="day-4" onchange="saveSchedule()">
+                            <label for="day-4">Thu</label>
+                        </div>
+                        <div class="day-checkbox">
+                            <input type="checkbox" id="day-5" onchange="saveSchedule()">
+                            <label for="day-5">Fri</label>
+                        </div>
+                        <div class="day-checkbox">
+                            <input type="checkbox" id="day-6" onchange="saveSchedule()">
+                            <label for="day-6">Sat</label>
+                        </div>
+                    </div>
+                </div>
+                <div id="scheduleStatus" class="schedule-status"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Origin Address (Work)</label>
+                <input type="text" id="originInput" placeholder="e.g., 123 Work St, City, State">
+            </div>
+
+            <div class="form-group">
+                <label>Destination Address (Home)</label>
+                <input type="text" id="destinationInput" placeholder="e.g., 456 Home Ave, City, State">
+            </div>
+
+            <button class="btn btn-secondary" onclick="saveAddresses()">Save Addresses</button>
+
+            <h3 style="margin: 20px 0 10px; color: #aaa;">Add New Route</h3>
+
+            <div class="form-group">
+                <label>Route Name</label>
+                <input type="text" id="routeNameInput" placeholder="e.g., Highway 101">
+            </div>
+
+            <div class="form-group">
+                <label>Via Waypoints (optional - forces route through these points in order)</label>
+                <div class="waypoints-container" id="waypointsContainer">
+                    <div class="waypoint-row">
+                        <input type="text" class="waypoint-input" placeholder="e.g., Downtown, or a street name">
+                        <button type="button" class="waypoint-btn add" onclick="addWaypointInput()">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="addRoute()">Add Route</button>
+
+            <div class="saved-routes">
+                <h3>Saved Routes (<span id="routeCount">0</span>)</h3>
+                <div id="savedRoutesList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let routes = [];
+        let apiKey = '';
+        let origin = '';
+        let destination = '';
+        let historyData = {}; // { routeId: [{time, duration}, ...] }
+        let updateInterval = null;
+        let countdownInterval = null;
+        let lastUpdateTime = null;
+        let googleLoaded = false;
+        let distanceMatrixService = null;
+
+        // Schedule settings
+        let schedule = {
+            startHour: 16,  // 4 PM default
+            endHour: 19,    // 7 PM default
+            days: [1, 2, 3, 4, 5]  // Mon-Fri default (0=Sun, 1=Mon, etc.)
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeHourSelects();
+            loadSettings();
+            renderRoutes();
+            updateScheduleStatus();
+            if (apiKey) {
+                loadGoogleMapsAPI();
+            }
+        });
+
+        function initializeHourSelects() {
+            const startSelect = document.getElementById('startHour');
+            const endSelect = document.getElementById('endHour');
+
+            for (let h = 0; h < 24; h++) {
+                const label = formatHour(h);
+                startSelect.innerHTML += `<option value="${h}">${label}</option>`;
+                endSelect.innerHTML += `<option value="${h}">${label}</option>`;
+            }
+
+            startSelect.addEventListener('change', saveSchedule);
+            endSelect.addEventListener('change', saveSchedule);
+        }
+
+        function formatHour(h) {
+            if (h === 0) return '12:00 AM';
+            if (h === 12) return '12:00 PM';
+            if (h < 12) return `${h}:00 AM`;
+            return `${h - 12}:00 PM`;
+        }
+
+        function isWithinSchedule() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentDay = now.getDay();
+
+            // Check day
+            if (!schedule.days.includes(currentDay)) {
+                return false;
+            }
+
+            // Check hour (handle overnight ranges like 22-6)
+            if (schedule.startHour <= schedule.endHour) {
+                // Normal range (e.g., 16-19)
+                return currentHour >= schedule.startHour && currentHour < schedule.endHour;
+            } else {
+                // Overnight range (e.g., 22-6)
+                return currentHour >= schedule.startHour || currentHour < schedule.endHour;
+            }
+        }
+
+        function updateScheduleStatus() {
+            const statusEl = document.getElementById('scheduleStatus');
+            if (!statusEl) return;
+
+            const withinSchedule = isWithinSchedule();
+            const now = new Date();
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            if (withinSchedule) {
+                statusEl.className = 'schedule-status active';
+                statusEl.textContent = `✓ Active now (${dayNames[now.getDay()]} ${formatHour(now.getHours())})`;
+            } else {
+                statusEl.className = 'schedule-status inactive';
+                const activeDays = schedule.days.map(d => dayNames[d]).join(', ');
+                statusEl.textContent = `✗ Outside schedule. Active: ${activeDays || 'No days'}, ${formatHour(schedule.startHour)}-${formatHour(schedule.endHour)}`;
+            }
+        }
+
+        function saveSchedule() {
+            schedule.startHour = parseInt(document.getElementById('startHour').value);
+            schedule.endHour = parseInt(document.getElementById('endHour').value);
+
+            schedule.days = [];
+            for (let d = 0; d < 7; d++) {
+                if (document.getElementById(`day-${d}`).checked) {
+                    schedule.days.push(d);
+                }
+            }
+
+            localStorage.setItem('routeTracker_schedule', JSON.stringify(schedule));
+            updateScheduleStatus();
+        }
+
+        function loadScheduleUI() {
+            document.getElementById('startHour').value = schedule.startHour;
+            document.getElementById('endHour').value = schedule.endHour;
+
+            for (let d = 0; d < 7; d++) {
+                document.getElementById(`day-${d}`).checked = schedule.days.includes(d);
+            }
+        }
+
+        // Load Google Maps JavaScript API
+        function loadGoogleMapsAPI() {
+            if (googleLoaded || !apiKey) return;
+
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=onGoogleMapsLoaded`;
+            script.async = true;
+            script.defer = true;
+            script.onerror = () => {
+                showError('Failed to load Google Maps API. Check your API key.');
+                setStatus('error');
+            };
+            document.head.appendChild(script);
+        }
+
+        // Callback when Google Maps API loads
+        window.onGoogleMapsLoaded = function() {
+            googleLoaded = true;
+            distanceMatrixService = new google.maps.DistanceMatrixService();
+            console.log('Google Maps API loaded');
+
+            if (routes.length > 0 && origin && destination) {
+                updateAllRoutes();
+                startAutoUpdate();
+            }
+        };
+
+        // Storage functions
+        function loadSettings() {
+            apiKey = localStorage.getItem('routeTracker_apiKey') || '';
+            origin = localStorage.getItem('routeTracker_origin') || '';
+            destination = localStorage.getItem('routeTracker_destination') || '';
+            routes = JSON.parse(localStorage.getItem('routeTracker_routes') || '[]');
+
+            // Load schedule
+            const savedSchedule = localStorage.getItem('routeTracker_schedule');
+            if (savedSchedule) {
+                schedule = JSON.parse(savedSchedule);
+            }
+
+            document.getElementById('apiKeyInput').value = apiKey;
+            document.getElementById('originInput').value = origin;
+            document.getElementById('destinationInput').value = destination;
+
+            loadScheduleUI();
+
+            // Migrate old routes with single waypoint to array format
+            routes.forEach(r => {
+                if (r.waypoint && !r.waypoints) {
+                    r.waypoints = [r.waypoint];
+                    delete r.waypoint;
+                } else if (!r.waypoints) {
+                    r.waypoints = [];
+                }
+            });
+
+            // Initialize history for each route
+            routes.forEach(r => {
+                if (!historyData[r.id]) {
+                    historyData[r.id] = [];
+                }
+            });
+        }
+
+        function saveSettings() {
+            localStorage.setItem('routeTracker_origin', origin);
+            localStorage.setItem('routeTracker_destination', destination);
+            localStorage.setItem('routeTracker_routes', JSON.stringify(routes));
+        }
+
+        function saveApiKey() {
+            const input = document.getElementById('apiKeyInput');
+            if (input.value.trim()) {
+                apiKey = input.value.trim();
+                localStorage.setItem('routeTracker_apiKey', apiKey);
+                showError('API key saved! Loading Google Maps...', false);
+
+                // Remove old script if exists and reload
+                const oldScript = document.querySelector('script[src*="maps.googleapis.com"]');
+                if (oldScript) oldScript.remove();
+                googleLoaded = false;
+
+                loadGoogleMapsAPI();
+            } else {
+                showError('Please enter an API key');
+            }
+        }
+
+        function saveAddresses() {
+            origin = document.getElementById('originInput').value.trim();
+            destination = document.getElementById('destinationInput').value.trim();
+            saveSettings();
+            showError('Addresses saved!', false);
+
+            if (googleLoaded && routes.length > 0) {
+                updateAllRoutes();
+            }
+        }
+
+        // Waypoint input management
+        function addWaypointInput() {
+            const container = document.getElementById('waypointsContainer');
+            const rows = container.querySelectorAll('.waypoint-row');
+
+            if (rows.length >= 5) {
+                showError('Maximum 5 waypoints allowed');
+                return;
+            }
+
+            const newRow = document.createElement('div');
+            newRow.className = 'waypoint-row';
+            newRow.innerHTML = `
+                <input type="text" class="waypoint-input" placeholder="Waypoint ${rows.length + 1}">
+                <button type="button" class="waypoint-btn remove" onclick="removeWaypointInput(this)">−</button>
+            `;
+            container.appendChild(newRow);
+        }
+
+        function removeWaypointInput(btn) {
+            btn.closest('.waypoint-row').remove();
+        }
+
+        function getWaypointInputs() {
+            const inputs = document.querySelectorAll('.waypoint-input');
+            const waypoints = [];
+            inputs.forEach(input => {
+                const val = input.value.trim();
+                if (val) waypoints.push(val);
+            });
+            return waypoints;
+        }
+
+        function clearWaypointInputs() {
+            const container = document.getElementById('waypointsContainer');
+            container.innerHTML = `
+                <div class="waypoint-row">
+                    <input type="text" class="waypoint-input" placeholder="e.g., Downtown, or a street name">
+                    <button type="button" class="waypoint-btn add" onclick="addWaypointInput()">+</button>
+                </div>
+            `;
+        }
+
+        // Route management
+        function addRoute() {
+
+            const name = document.getElementById('routeNameInput').value.trim();
+            const waypoints = getWaypointInputs();
+
+            if (!name) {
+                showError('Please enter a route name');
+                return;
+            }
+
+            origin = document.getElementById('originInput').value.trim();
+            destination = document.getElementById('destinationInput').value.trim();
+
+            if (!origin || !destination) {
+                showError('Please enter origin and destination addresses');
+                return;
+            }
+
+            const route = {
+                id: Date.now().toString(),
+                name,
+                waypoints,
+                duration: null
+            };
+
+            routes.push(route);
+            historyData[route.id] = [];
+            saveSettings();
+
+            document.getElementById('routeNameInput').value = '';
+            clearWaypointInputs();
+
+            renderSavedRoutes();
+            renderRoutes();
+
+            if (googleLoaded) {
+                updateAllRoutes();
+                startAutoUpdate();
+            }
+
+            showError('Route added!', false);
+        }
+
+        function deleteRoute(id) {
+            routes = routes.filter(r => r.id !== id);
+            delete historyData[id];
+            saveSettings();
+            renderSavedRoutes();
+            renderRoutes();
+        }
+
+        // API calls using Google Maps JavaScript API
+        async function updateAllRoutes() {
+            if (!googleLoaded || !distanceMatrixService || routes.length === 0) {
+                console.log('Cannot update: googleLoaded=' + googleLoaded + ', routes=' + routes.length);
+                return;
+            }
+
+            if (!origin || !destination) {
+                showError('Please set origin and destination addresses');
+                return;
+            }
+
+            // Check schedule
+            if (!isWithinSchedule()) {
+                setStatus('inactive');
+                document.getElementById('statusDot').style.background = '#868e96';
+                document.getElementById('lastUpdate').textContent = 'Outside scheduled hours';
+                document.getElementById('countdown').textContent = '';
+                updateScheduleStatus();
+                return;
+            }
+
+            setStatus('loading');
+
+            try {
+                // Update routes sequentially to handle waypoints properly
+                for (const route of routes) {
+                    await fetchRouteTime(route);
+                }
+
+                lastUpdateTime = new Date();
+                setStatus('active');
+                document.getElementById('lastUpdate').textContent =
+                    `Updated ${lastUpdateTime.toLocaleTimeString()}`;
+
+                renderRoutes();
+                startCountdown();
+            } catch (error) {
+                console.error('Update failed:', error);
+                setStatus('error');
+                document.getElementById('lastUpdate').textContent = 'Update failed: ' + error.message;
+            }
+        }
+
+        function fetchRouteTime(route) {
+            return new Promise((resolve, reject) => {
+                // For routes with waypoints, we need to use Directions API
+                // For direct routes, Distance Matrix is more efficient
+                const waypoints = route.waypoints || [];
+
+                if (waypoints.length > 0) {
+                    const directionsService = new google.maps.DirectionsService();
+
+                    directionsService.route({
+                        origin: origin,
+                        destination: destination,
+                        waypoints: waypoints.map(wp => ({ location: wp, stopover: false })),
+                        travelMode: google.maps.TravelMode.DRIVING,
+                        drivingOptions: {
+                            departureTime: new Date(),
+                            trafficModel: google.maps.TrafficModel.BEST_GUESS
+                        }
+                    }, (result, status) => {
+                        if (status === 'OK') {
+                            let totalDuration = 0;
+                            result.routes[0].legs.forEach(leg => {
+                                // Use duration_in_traffic if available
+                                totalDuration += leg.duration_in_traffic ?
+                                    leg.duration_in_traffic.value :
+                                    leg.duration.value;
+                            });
+
+                            route.duration = Math.round(totalDuration / 60);
+                            addToHistory(route);
+                            resolve();
+                        } else {
+                            console.error('Directions failed for ' + route.name + ': ' + status);
+                            reject(new Error(status));
+                        }
+                    });
+                } else {
+                    // Direct route - use Distance Matrix
+                    distanceMatrixService.getDistanceMatrix({
+                        origins: [origin],
+                        destinations: [destination],
+                        travelMode: google.maps.TravelMode.DRIVING,
+                        drivingOptions: {
+                            departureTime: new Date(),
+                            trafficModel: google.maps.TrafficModel.BEST_GUESS
+                        }
+                    }, (result, status) => {
+                        if (status === 'OK') {
+                            const element = result.rows[0].elements[0];
+                            if (element.status === 'OK') {
+                                const duration = element.duration_in_traffic ?
+                                    element.duration_in_traffic.value :
+                                    element.duration.value;
+
+                                route.duration = Math.round(duration / 60);
+                                addToHistory(route);
+                                resolve();
+                            } else {
+                                reject(new Error(element.status));
+                            }
+                        } else {
+                            console.error('Distance Matrix failed: ' + status);
+                            reject(new Error(status));
+                        }
+                    });
+                }
+            });
+        }
+
+        function addToHistory(route) {
+            const history = historyData[route.id];
+            history.push({
+                time: Date.now(),
+                duration: route.duration
+            });
+
+            // Keep only last 30 minutes of data
+            const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
+            historyData[route.id] = history.filter(h => h.time > thirtyMinAgo);
+        }
+
+        function startAutoUpdate() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+            updateInterval = setInterval(updateAllRoutes, 60000); // Every minute
+        }
+
+        function startCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+
+            let secondsLeft = 60;
+            const countdownEl = document.getElementById('countdown');
+
+            countdownInterval = setInterval(() => {
+                secondsLeft--;
+
+                // Check if we've moved outside the schedule
+                if (!isWithinSchedule()) {
+                    countdownEl.textContent = '';
+                    document.getElementById('lastUpdate').textContent = 'Outside scheduled hours';
+                    document.getElementById('statusDot').style.background = '#868e96';
+                    updateScheduleStatus();
+                    return;
+                }
+
+                if (secondsLeft > 0) {
+                    countdownEl.textContent = `Next update in ${secondsLeft}s`;
+                } else {
+                    countdownEl.textContent = 'Updating...';
+                    secondsLeft = 60;
+                }
+            }, 1000);
+        }
+
+        // Rendering
+        function renderRoutes() {
+            const container = document.getElementById('routesContainer');
+
+            if (routes.length === 0) {
+                container.innerHTML = `
+                    <div class="no-routes">
+                        <p>No routes configured</p>
+                        <button class="btn btn-primary" onclick="openSettings()">Add Routes</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort by duration (fastest first), nulls last
+            const sortedRoutes = [...routes].sort((a, b) => {
+                if (a.duration === null) return 1;
+                if (b.duration === null) return -1;
+                return a.duration - b.duration;
+            });
+
+            // Calculate global min/max across all routes for consistent scale
+            const globalBounds = getGlobalBounds();
+
+            container.innerHTML = sortedRoutes.map((route, index) => {
+                const bgSvg = generateBackgroundChart(route.id, globalBounds);
+                const isFastest = index === 0 && route.duration !== null;
+                const mapsUrl = buildGoogleMapsUrl(route);
+
+                return `
+                    <div class="route-card" style="${isFastest ? 'border: 2px solid #51cf66;' : ''}">
+                        <div class="route-card-bg">${bgSvg}</div>
+                        <div class="route-info">
+                            <div class="route-name">${isFastest ? '&#9733; ' : ''}${escapeHtml(route.name)}</div>
+                            <a href="${mapsUrl}" target="_blank" class="map-link">&#128506; Map</a>
+                        </div>
+                        <div class="route-time">
+                            <div class="time-value">${route.duration !== null ? route.duration : '--'}</div>
+                            <div class="time-unit">min</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function calculateTrend(routeId) {
+            const history = historyData[routeId] || [];
+
+            if (history.length < 2) {
+                return { direction: 'stable', change: 0 };
+            }
+
+            const current = history[history.length - 1].duration;
+            const oldest = history[0].duration;
+            const change = current - oldest;
+
+            if (change > 1) {
+                return { direction: 'up', change };
+            } else if (change < -1) {
+                return { direction: 'down', change };
+            }
+            return { direction: 'stable', change: 0 };
+        }
+
+        function getGlobalBounds() {
+            let allDurations = [];
+            routes.forEach(route => {
+                const history = historyData[route.id] || [];
+                if (history.length > 0) {
+                    allDurations = allDurations.concat(history.map(h => h.duration));
+                }
+            });
+
+            if (allDurations.length < 2) {
+                return { min: null, max: null };
+            }
+
+            return {
+                min: Math.min(...allDurations),
+                max: Math.max(...allDurations)
+            };
+        }
+
+        function generateBackgroundChart(routeId, globalBounds) {
+            const history = historyData[routeId] || [];
+            const now = Date.now();
+            const thirtyMinAgo = now - 30 * 60 * 1000;
+
+            if (history.length < 2 || globalBounds.min === null) {
+                return '';
+            }
+
+            const min = globalBounds.min;
+            const max = globalBounds.max;
+            const range = max - min || 1;
+
+            // SVG viewBox uses 100 units for easy percentage mapping
+            const width = 100;
+            const height = 100;
+            const padding = 5;
+
+            // Map each point's x based on its timestamp within the 30-min window
+            // Point at 30 min ago = x:0, point at now = x:100
+            const points = history.map(h => {
+                const x = ((h.time - thirtyMinAgo) / (30 * 60 * 1000)) * width;
+                const y = height - padding - ((h.duration - min) / range) * (height - padding * 2);
+                return `${x},${y}`;
+            }).join(' ');
+
+            const trend = calculateTrend(routeId);
+            const color = trend.direction === 'up' ? 'rgba(255, 107, 107, 0.4)' :
+                         trend.direction === 'down' ? 'rgba(81, 207, 102, 0.4)' : 'rgba(134, 142, 150, 0.4)';
+            const strokeColor = trend.direction === 'up' ? 'rgba(255, 107, 107, 0.8)' :
+                         trend.direction === 'down' ? 'rgba(81, 207, 102, 0.8)' : 'rgba(134, 142, 150, 0.6)';
+
+            // Create filled area under the line
+            const firstPoint = history[0];
+            const lastPoint = history[history.length - 1];
+            const startX = ((firstPoint.time - thirtyMinAgo) / (30 * 60 * 1000)) * width;
+            const endX = ((lastPoint.time - thirtyMinAgo) / (30 * 60 * 1000)) * width;
+            const areaPoints = `${startX},${height} ${points} ${endX},${height}`;
+
+            return `
+                <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+                    <polygon fill="${color}" points="${areaPoints}"/>
+                    <polyline fill="none" stroke="${strokeColor}" stroke-width="1.5" points="${points}"/>
+                </svg>
+            `;
+        }
+
+        function renderSavedRoutes() {
+            const list = document.getElementById('savedRoutesList');
+            document.getElementById('routeCount').textContent = routes.length;
+
+            if (routes.length === 0) {
+                list.innerHTML = '<p style="color: #666; font-size: 14px;">No routes added yet</p>';
+                return;
+            }
+
+            list.innerHTML = routes.map(route => {
+                const mapsUrl = buildGoogleMapsUrl(route);
+                const waypoints = route.waypoints || [];
+                const viaText = waypoints.length > 0
+                    ? 'via ' + waypoints.join(' → ')
+                    : 'Direct route';
+                return `
+                    <div class="saved-route-item">
+                        <div class="saved-route-info">
+                            <div class="saved-route-name">${escapeHtml(route.name)}</div>
+                            <div class="saved-route-via">
+                                ${escapeHtml(viaText)}
+                                &nbsp;&bull;&nbsp;
+                                <a href="${mapsUrl}" target="_blank" class="map-link">View on Map &#8599;</a>
+                            </div>
+                        </div>
+                        <button class="delete-route" onclick="deleteRoute('${route.id}')">&times;</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // UI helpers
+        function openSettings() {
+            document.getElementById('settingsModal').classList.add('active');
+            renderSavedRoutes();
+            updateScheduleStatus();
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('active');
+        }
+
+        function showError(message, isError = true) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            el.style.display = 'block';
+            el.style.background = isError ? '#c92a2a' : '#2f9e44';
+            setTimeout(() => el.style.display = 'none', 3000);
+        }
+
+        function setStatus(status) {
+            const dot = document.getElementById('statusDot');
+            dot.className = 'status-dot ' + status;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function buildGoogleMapsUrl(route) {
+            // Build Google Maps directions URL
+            // Format: https://www.google.com/maps/dir/?api=1&origin=X&destination=Y&waypoints=Z|W&travelmode=driving
+            let url = 'https://www.google.com/maps/dir/?api=1';
+            url += '&origin=' + encodeURIComponent(origin);
+            url += '&destination=' + encodeURIComponent(destination);
+            const waypoints = route.waypoints || [];
+            if (waypoints.length > 0) {
+                url += '&waypoints=' + encodeURIComponent(waypoints.join('|'));
+            }
+            url += '&travelmode=driving';
+            return url;
+        }
+
+        // Prevent screen from sleeping (where supported)
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake lock acquired');
+                }
+            } catch (err) {
+                console.log('Wake lock not supported or denied:', err.message);
+            }
+        }
+
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                await requestWakeLock();
+                // Refresh when app comes back to foreground
+                if (googleLoaded && routes.length > 0) {
+                    updateAllRoutes();
+                }
+            }
+        });
+
+        requestWakeLock();
+    </script>
+</body>
+</html>
